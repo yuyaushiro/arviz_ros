@@ -1,0 +1,20 @@
+<launch>
+  <!-- Machine -->
+  <!-- <include file="$(find arviz)/launch/network.machine" /> -->
+
+  <!-- TurtleBot 3 -->
+  <!-- <include file="$(find turtlebot3_bringup)/launch/turtlebot3_robot.launch">
+  </include> -->
+
+  <!-- ROS Bridge -->
+  <!-- <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+  </include> -->
+
+  <!-- Navigation -->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+    <arg name="map_file" value="$(find arviz)/maps/map.yaml" />
+  </include>
+
+  <!-- <node name="joy_node" pkg="joy" type="joy_node" output="screen"/>
+  <node name="joy_twist" pkg="mcl4pfc" type="joy_twist.py" output="screen"/> -->
+</launch>

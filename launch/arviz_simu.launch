@@ -1,0 +1,23 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="map_file" default="$(find arviz)/maps/map.yaml"/>
+
+  <!-- TurtleBot 3 -->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
+  </include>
+
+  <!-- Navigation -->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+    <!-- <arg name="map_file" value="$(arg map_file)" /> -->
+  </include>
+
+  <!-- ROS Bridge -->
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+  </include>
+
+  <node name="broadcast_foot2unity" pkg="arviz" type="broadcast_map2unity.py" output="screen"/>
+  <node name="pub_foot_in_unity" pkg="arviz" type="pub_foot_in_unity_node" output="screen"/>
+  <node name="pub_scan_in_unity" pkg="arviz" type="pub_scan_in_unity_node" output="screen"/>
+  <node name="pub_particle_in_unity" pkg="arviz" type="pub_particle_in_unity_node" output="screen"/>
+  <node name="pub_path_in_unity" pkg="arviz" type="pub_path_in_unity_node" output="screen"/>
+</launch>

@@ -1,0 +1,12 @@
+<launch>
+  <!-- TurtleBot 3 -->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
+  </include>
+
+  <!-- Navigation -->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+  </include>
+
+  <!-- <node name="pub_goal_in_unity" pkg="arviz" type="pub_goal_in_unity.py" output="screen"/> -->
+  <node name="broadcast_foot2unity" pkg="arviz" type="broadcast_foot2unity.py" output="screen"/>
+</launch>
