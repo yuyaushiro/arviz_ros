@@ -75,6 +75,7 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>laser_geometry</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>turtlebot3_gazebo</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
