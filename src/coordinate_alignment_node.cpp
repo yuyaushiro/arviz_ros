@@ -1,7 +1,11 @@
 #include <ros/ros.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <std_msgs/Empty.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/PointCloud2.h>
 
 
 class CoordinateAlignment
@@ -15,6 +19,8 @@ class CoordinateAlignment
   // 座標合わせ実行指示
   void AlignmentCallback(const std_msgs::EmptyConstPtr& data);
 
+  void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+
  private:
   // ノードハンドラ
   ros::NodeHandle nh_;
@@ -22,6 +28,8 @@ class CoordinateAlignment
   ros::Subscriber map_sub_;
   ros::Subscriber scan_sub_;
   ros::Subscriber alignment_sub_;
+
+  ros::Publisher pointcloud_pub_;  // デバッグ用に点群のPub
 };
 
 CoordinateAlignment::CoordinateAlignment()
@@ -32,6 +40,8 @@ CoordinateAlignment::CoordinateAlignment()
                                                     &CoordinateAlignment::scanCallback, this);
   alignment_sub_ = nh_.subscribe<std_msgs::Empty>("icp_align", 1,
                                                   &CoordinateAlignment::AlignmentCallback, this);
+
+  pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("pc_out", 1, true);
 }
 
 void CoordinateAlignment::mapCallback(const nav_msgs::OccupancyGridConstPtr& map)
@@ -44,6 +54,14 @@ void CoordinateAlignment::scanCallback(const sensor_msgs::LaserScanConstPtr& sca
 
 void CoordinateAlignment::AlignmentCallback(const std_msgs::EmptyConstPtr& data)
 {
+}
+
+void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
+{
+  sensor_msgs::PointCloud2 pc2;
+  pcl::toROSMsg(*point_cloud, pc2);
+  pc2.header.frame_id = "map";
+  pointcloud_pub_.publish(pc2);
 }
 
 

@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   sensor_msgs
   laser_geometry
+  pcl_ros
+  pcl_conversions
 )
 
 ## System dependencies are found with CMake's conventions
