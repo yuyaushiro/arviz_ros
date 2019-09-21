@@ -152,6 +152,9 @@ add_executable(pub_path_in_unity_node
 add_executable(pub_foot_in_unity_node
   src/pub_foot_in_unity_node.cpp
 )
+add_executable(coordinate_alignment_node
+  src/coordinate_alignment_node.cpp
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -174,6 +177,9 @@ target_link_libraries(pub_path_in_unity_node
   ${catkin_LIBRARIES}
 )
 target_link_libraries(pub_foot_in_unity_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(coordinate_alignment_node
   ${catkin_LIBRARIES}
 )
 
