@@ -16,4 +16,5 @@
   <node name="pub_scan_in_unity" pkg="arviz" type="pub_scan_in_unity_node" output="screen"/>
   <node name="pub_particle_in_unity" pkg="arviz" type="pub_particle_in_unity_node" output="screen"/>
   <node name="pub_path_in_unity" pkg="arviz" type="pub_path_in_unity_node" output="screen"/>
+  <node name="coordinate_alignment" pkg="arviz" type="coordinate_alignment_node" output="screen"/>
 </launch>
