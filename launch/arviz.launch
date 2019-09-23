@@ -1,6 +1,6 @@
 <launch>
   <!-- Arguments -->
-  <arg name="map_file" default="$(find arviz)/maps/map.yaml"/>
+  <arg name="map_file" default="$(find arviz_ros)/maps/map.yaml"/>
 
   <!-- Navigation -->
   <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
@@ -11,10 +11,10 @@
   <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
   </include>
 
-  <node name="broadcast_foot2unity" pkg="arviz" type="broadcast_map2unity.py" output="screen"/>
-  <node name="pub_foot_in_unity" pkg="arviz" type="pub_foot_in_unity_node" output="screen"/>
-  <node name="pub_scan_in_unity" pkg="arviz" type="pub_scan_in_unity_node" output="screen"/>
-  <node name="pub_particle_in_unity" pkg="arviz" type="pub_particle_in_unity_node" output="screen"/>
-  <node name="pub_path_in_unity" pkg="arviz" type="pub_path_in_unity_node" output="screen"/>
-  <node name="coordinate_alignment" pkg="arviz" type="coordinate_alignment_node" output="screen"/>
+  <node name="broadcast_foot2unity" pkg="arviz_ros" type="broadcast_map2unity.py" output="screen"/>
+  <node name="pub_foot_in_unity" pkg="arviz_ros" type="pub_foot_in_unity_node" output="screen"/>
+  <node name="pub_scan_in_unity" pkg="arviz_ros" type="pub_scan_in_unity_node" output="screen"/>
+  <node name="pub_particle_in_unity" pkg="arviz_ros" type="pub_particle_in_unity_node" output="screen"/>
+  <node name="pub_path_in_unity" pkg="arviz_ros" type="pub_path_in_unity_node" output="screen"/>
+  <node name="coordinate_alignment" pkg="arviz_ros" type="coordinate_alignment_node" output="screen"/>
 </launch>
