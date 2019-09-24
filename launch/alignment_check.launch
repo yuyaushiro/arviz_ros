@@ -1,0 +1,28 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="map_file" default="$(find arviz_ros)/maps/map.yaml"/>
+
+  <!-- TurtleBot 3 -->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
+  </include>
+
+  <!-- Navigation -->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+    <arg name="open_rviz" value="false" />
+  </include>
+
+  <!-- rviz -->
+  <node pkg="rviz" type="rviz" name="rviz" required="true"
+      args="-d $(find arviz_ros)/rviz/alignment_check.rviz"/>
+
+  <!-- ROS Bridge -->
+  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch">
+  </include>
+
+  <node name="broadcast_foot2unity" pkg="arviz_ros" type="broadcast_map2unity.py" output="screen"/>
+  <node name="pub_foot_in_unity" pkg="arviz_ros" type="pub_foot_in_unity_node" output="screen"/>
+  <node name="pub_scan_in_unity" pkg="arviz_ros" type="pub_scan_in_unity_node" output="screen"/>
+  <node name="pub_particle_in_unity" pkg="arviz_ros" type="pub_particle_in_unity_node" output="screen"/>
+  <node name="pub_path_in_unity" pkg="arviz_ros" type="pub_path_in_unity_node" output="screen"/>
+  <node name="coordinate_alignment" pkg="arviz_ros" type="coordinate_alignment_node" output="screen"/>
+</launch>

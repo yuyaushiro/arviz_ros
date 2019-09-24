@@ -1,14 +1,16 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <std_msgs/Empty.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <laser_geometry/laser_geometry.h>
+
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/registration/icp.h>
+#include <pcl_ros/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 
 class CoordinateAlignment
@@ -20,13 +22,17 @@ class CoordinateAlignment
   void mapCallback(const nav_msgs::OccupancyGridConstPtr& map);
   void scanCallback(const sensor_msgs::LaserScanConstPtr& scan);
   // 座標合わせ実行指示
-  void AlignmentCallback(const std_msgs::EmptyConstPtr& data);
+  void alignmentCallback(const std_msgs::EmptyConstPtr& data);
 
   void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
   void convertMapIntoPointCloud(const nav_msgs::OccupancyGridConstPtr& occupancy_grid,
                                 pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
   void convertScanIntoPointCloud(const sensor_msgs::LaserScanConstPtr& scan,
                                  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+  void alignWithICP(const pcl::PointCloud<pcl::PointXYZ>::Ptr source_pc,
+                    const pcl::PointCloud<pcl::PointXYZ>::Ptr target_pc,
+                    pcl::PointCloud<pcl::PointXYZ>::Ptr alined_pc,
+                    Eigen::Matrix4d& transformation_matrix);
 
  private:
   // ノードハンドラ
@@ -51,8 +57,8 @@ CoordinateAlignment::CoordinateAlignment()
                                                     &CoordinateAlignment::mapCallback, this);
   scan_sub_ = nh_.subscribe<sensor_msgs::LaserScan>("scan", 1,
                                                     &CoordinateAlignment::scanCallback, this);
-  alignment_sub_ = nh_.subscribe<std_msgs::Empty>("icp_align", 1,
-                                                  &CoordinateAlignment::AlignmentCallback, this);
+  alignment_sub_ = nh_.subscribe<std_msgs::Empty>("align", 1,
+                                                  &CoordinateAlignment::alignmentCallback, this);
 
   pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("pc_out", 1, true);
 
@@ -83,8 +89,29 @@ void CoordinateAlignment::scanCallback(const sensor_msgs::LaserScanConstPtr& sca
   }
 }
 
-void CoordinateAlignment::AlignmentCallback(const std_msgs::EmptyConstPtr& data)
+void CoordinateAlignment::alignmentCallback(const std_msgs::EmptyConstPtr& data)
 {
+  try
+  {
+    tf_listner_.waitForTransform("map", "base_footprint", ros::Time::now(), ros::Duration(3.0));
+
+    // mapからbasefoot_printへの変換
+    tf::StampedTransform map_T_foot;
+    tf_listner_.lookupTransform("map", "base_footprint", ros::Time(0), map_T_foot);
+
+    // 点群同士の重ね合わせを計算
+    pcl::PointCloud<pcl::PointXYZ>::Ptr aligned_scan_pc(new pcl::PointCloud<pcl::PointXYZ>);  // 位置合わせ後のscan点群
+    Eigen::Matrix4d alignment_transformation_matrix;  // 位置合わせ行うための座標変換
+    alignWithICP(scan_pc_, map_pc_, aligned_scan_pc, alignment_transformation_matrix);
+
+    // 位置合わせ後のscan点群を配信
+    publishPointCloud(aligned_scan_pc);
+  }
+  catch (tf::TransformException ex)
+  {
+    ROS_ERROR("%s", ex.what());
+    ros::Duration(1.0).sleep();
+  }
 }
 
 void CoordinateAlignment::convertMapIntoPointCloud(const nav_msgs::OccupancyGridConstPtr& occupancy_grid,
@@ -149,6 +176,25 @@ void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>
   pcl::toROSMsg(*point_cloud, pc2);
   pc2.header.frame_id = "map";
   pointcloud_pub_.publish(pc2);
+}
+
+void CoordinateAlignment::alignWithICP(const pcl::PointCloud<pcl::PointXYZ>::Ptr source_pc,
+                                       const pcl::PointCloud<pcl::PointXYZ>::Ptr target_pc,
+                                       pcl::PointCloud<pcl::PointXYZ>::Ptr alined_pc,
+                                       Eigen::Matrix4d& transformation_matrix)
+{
+  // ICPの設定
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+  icp.setInputSource(source_pc);
+  icp.setInputTarget(target_pc);
+  icp.setMaximumIterations(100);
+  icp.setTransformationEpsilon(1e-9);
+
+  // ICP実行
+  icp.align(*alined_pc);
+
+  // 位置合わせのための座標変換
+  transformation_matrix = icp.getFinalTransformation().cast<double>();
 }
 
 
