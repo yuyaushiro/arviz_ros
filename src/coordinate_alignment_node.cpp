@@ -8,6 +8,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <laser_geometry/laser_geometry.h>
 
 
 class CoordinateAlignment
@@ -24,6 +25,8 @@ class CoordinateAlignment
   void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
   void convertMapIntoPointCloud(const nav_msgs::OccupancyGridConstPtr& occupancy_grid,
                                 pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+  void convertScanIntoPointCloud(const sensor_msgs::LaserScanConstPtr& scan,
+                                 pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
 
  private:
   // ノードハンドラ
@@ -35,8 +38,11 @@ class CoordinateAlignment
 
   ros::Publisher pointcloud_pub_;  // デバッグ用に点群のPub
 
+  tf::TransformListener tf_listner_;
+
   // 点群
   pcl::PointCloud<pcl::PointXYZ>::Ptr map_pc_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc_;
 };
 
 CoordinateAlignment::CoordinateAlignment()
@@ -51,16 +57,30 @@ CoordinateAlignment::CoordinateAlignment()
   pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("pc_out", 1, true);
 
   map_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
+  scan_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
 }
 
 void CoordinateAlignment::mapCallback(const nav_msgs::OccupancyGridConstPtr& map)
 {
   convertMapIntoPointCloud(map, map_pc_);
-  publishPointCloud(map_pc_);
+  // publishPointCloud(map_pc_);
 }
 
 void CoordinateAlignment::scanCallback(const sensor_msgs::LaserScanConstPtr& scan)
 {
+  try
+  {
+    tf_listner_.waitForTransform(scan->header.frame_id, "map",
+                                 scan->header.stamp + ros::Duration().fromSec(scan->ranges.size()*scan->time_increment),
+                                 ros::Duration(3.0));
+    convertScanIntoPointCloud(scan, scan_pc_);
+    // publishPointCloud(scan_pc_);
+  }
+  catch (tf::TransformException ex)
+  {
+    ROS_ERROR("%s", ex.what());
+    ros::Duration(1.0).sleep();
+  }
 }
 
 void CoordinateAlignment::AlignmentCallback(const std_msgs::EmptyConstPtr& data)
@@ -106,6 +126,21 @@ void CoordinateAlignment::convertMapIntoPointCloud(const nav_msgs::OccupancyGrid
   tf::Transform transform_map;
   tf::poseMsgToTF(occupancy_grid->info.origin, transform_map);
   pcl_ros::transformPointCloud(*point_cloud, *point_cloud, transform_map);
+}
+
+void CoordinateAlignment::convertScanIntoPointCloud(const sensor_msgs::LaserScanConstPtr& scan,
+                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
+{
+  sensor_msgs::PointCloud2 pc2;  // 点群に変換したスキャン
+  sensor_msgs::PointCloud2 pc2_map_frame;  // 点群に変換したスキャン(map座標系)
+
+  laser_geometry::LaserProjection projector;
+  // LaserScanからPointCloud2への変換
+  projector.projectLaser(*scan, pc2);
+  // PointCloudの座標変換
+  pcl_ros::transformPointCloud("map", pc2, pc2_map_frame, tf_listner_);
+  // PCLのPointCloudへ変換
+  pcl::fromROSMsg(pc2_map_frame, *scan_pc_);
 }
 
 void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
