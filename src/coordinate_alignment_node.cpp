@@ -13,26 +13,36 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 
+/**
+ * @brief 地図と現実世界の座標を合わせる
+ */
 class CoordinateAlignment
 {
  public:
+  /// コンストラクタ
   CoordinateAlignment();
 
-  // Subscriber
+  /// マップのコールバック
   void mapCallback(const nav_msgs::OccupancyGridConstPtr& map);
+  /// レーザースキャンのコールバック
   void scanCallback(const sensor_msgs::LaserScanConstPtr& scan);
-  // 座標合わせ実行指示
+  /// 座標合わせ実行指示のコールバック
   void alignmentCallback(const std_msgs::EmptyConstPtr& data);
 
-  void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+ private:
+  /// 占有格子地図を点群に変換
   void convertMapIntoPointCloud(const nav_msgs::OccupancyGridConstPtr& occupancy_grid,
                                 pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+  /// レーザースキャンを点群に変換
   void convertScanIntoPointCloud(const sensor_msgs::LaserScanConstPtr& scan,
                                  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+  /// ICPにより点群の重ね合わせ
   void alignWithICP(const pcl::PointCloud<pcl::PointXYZ>::Ptr source_pc,
                     const pcl::PointCloud<pcl::PointXYZ>::Ptr target_pc,
                     pcl::PointCloud<pcl::PointXYZ>::Ptr alined_pc,
                     Eigen::Matrix4d& transformation_matrix);
+  /// 点群をパブリッシュ
+  void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
 
  private:
   // ノードハンドラ
@@ -42,8 +52,10 @@ class CoordinateAlignment
   ros::Subscriber scan_sub_;
   ros::Subscriber alignment_sub_;
 
-  ros::Publisher pointcloud_pub_;  // デバッグ用に点群のPub
+  // デバッグ用の点群パブリッシャ
+  ros::Publisher pointcloud_pub_;
 
+  // TF
   tf::TransformListener tf_listner_;
 
   // 点群
@@ -51,6 +63,10 @@ class CoordinateAlignment
   pcl::PointCloud<pcl::PointXYZ>::Ptr scan_pc_;
 };
 
+
+/**
+ * @brief コンストラクタ
+ */
 CoordinateAlignment::CoordinateAlignment()
 {
   map_sub_ = nh_.subscribe<nav_msgs::OccupancyGrid>("map", 1,
@@ -66,12 +82,20 @@ CoordinateAlignment::CoordinateAlignment()
   scan_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
 }
 
+
+/**
+ * @brief マップのコールバック
+ */
 void CoordinateAlignment::mapCallback(const nav_msgs::OccupancyGridConstPtr& map)
 {
   convertMapIntoPointCloud(map, map_pc_);
   // publishPointCloud(map_pc_);
 }
 
+
+/**
+ * @brief レーザースキャンのコールバック
+ */
 void CoordinateAlignment::scanCallback(const sensor_msgs::LaserScanConstPtr& scan)
 {
   try
@@ -89,6 +113,10 @@ void CoordinateAlignment::scanCallback(const sensor_msgs::LaserScanConstPtr& sca
   }
 }
 
+
+/**
+ * @brief 座標合わせ実行指示のコールバック
+ */
 void CoordinateAlignment::alignmentCallback(const std_msgs::EmptyConstPtr& data)
 {
   try
@@ -114,6 +142,10 @@ void CoordinateAlignment::alignmentCallback(const std_msgs::EmptyConstPtr& data)
   }
 }
 
+
+/**
+ * @brief 占有格子地図を点群に変換
+ */
 void CoordinateAlignment::convertMapIntoPointCloud(const nav_msgs::OccupancyGridConstPtr& occupancy_grid,
                                                    pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
 {
@@ -155,6 +187,10 @@ void CoordinateAlignment::convertMapIntoPointCloud(const nav_msgs::OccupancyGrid
   pcl_ros::transformPointCloud(*point_cloud, *point_cloud, transform_map);
 }
 
+
+/**
+ * @brief レーザースキャンを点群に変換
+ */
 void CoordinateAlignment::convertScanIntoPointCloud(const sensor_msgs::LaserScanConstPtr& scan,
                                                     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
 {
@@ -170,14 +206,10 @@ void CoordinateAlignment::convertScanIntoPointCloud(const sensor_msgs::LaserScan
   pcl::fromROSMsg(pc2_map_frame, *scan_pc_);
 }
 
-void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
-{
-  sensor_msgs::PointCloud2 pc2;
-  pcl::toROSMsg(*point_cloud, pc2);
-  pc2.header.frame_id = "map";
-  pointcloud_pub_.publish(pc2);
-}
 
+/**
+ * @brief ICPにより点群の重ね合わせ
+ */
 void CoordinateAlignment::alignWithICP(const pcl::PointCloud<pcl::PointXYZ>::Ptr source_pc,
                                        const pcl::PointCloud<pcl::PointXYZ>::Ptr target_pc,
                                        pcl::PointCloud<pcl::PointXYZ>::Ptr alined_pc,
@@ -198,6 +230,21 @@ void CoordinateAlignment::alignWithICP(const pcl::PointCloud<pcl::PointXYZ>::Ptr
 }
 
 
+/**
+ * @brief 点群をパブリッシュ
+ */
+void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud)
+{
+  sensor_msgs::PointCloud2 pc2;
+  pcl::toROSMsg(*point_cloud, pc2);
+  pc2.header.frame_id = "map";
+  pointcloud_pub_.publish(pc2);
+}
+
+
+/**
+ * @brief メイン関数
+ */
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "coordinate_alignment");
