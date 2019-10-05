@@ -5,7 +5,9 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <laser_geometry/laser_geometry.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 
+#include <eigen_conversions/eigen_msg.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/registration/icp.h>
@@ -43,6 +45,11 @@ class CoordinateAlignment
                     Eigen::Matrix4d& transformation_matrix);
   /// 点群をパブリッシュ
   void publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud);
+  /// 初期位置をパブリッシュ
+  void publishInitialpose(const tf::Transform transform);
+  /// Eigenの行列をTFに変換
+  void convertMatrix4dIntoTF(const Eigen::Matrix4d& eigen_matrix,
+                             tf::Transform& transform);
 
  private:
   // ノードハンドラ
@@ -54,6 +61,8 @@ class CoordinateAlignment
 
   // デバッグ用の点群パブリッシャ
   ros::Publisher pointcloud_pub_;
+  // ICPで格子地図とスキャン合わせて補正した初期姿勢のパブリッシャ
+  ros::Publisher initialpose_pub_;  
 
   // TF
   tf::TransformListener tf_listner_;
@@ -77,6 +86,8 @@ CoordinateAlignment::CoordinateAlignment()
                                                   &CoordinateAlignment::alignmentCallback, this);
 
   pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("pc_out", 1, true);
+  initialpose_pub_ = nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 1,
+                                                                             false);
 
   map_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
   scan_pc_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
@@ -132,7 +143,17 @@ void CoordinateAlignment::alignmentCallback(const std_msgs::EmptyConstPtr& data)
     Eigen::Matrix4d alignment_transformation_matrix;  // 位置合わせ行うための座標変換
     alignWithICP(scan_pc_, map_pc_, aligned_scan_pc, alignment_transformation_matrix);
 
-    // 位置合わせ後のscan点群を配信
+    // Matrix4dをtf::Poseに変換
+    tf::Transform alignment_transform;
+    convertMatrix4dIntoTF(alignment_transformation_matrix, alignment_transform);
+
+    // ロボットの現在位置への変換(ICPにより計算)
+    tf::Transform aligned_transform = alignment_transform * map_T_foot;
+
+    // 初期姿勢をパブリッシュ
+    publishInitialpose(aligned_transform);
+
+    // 位置合わせ後のスキャン点群をパブリッシュ
     publishPointCloud(aligned_scan_pc);
   }
   catch (tf::TransformException ex)
@@ -239,6 +260,46 @@ void CoordinateAlignment::publishPointCloud(const pcl::PointCloud<pcl::PointXYZ>
   pcl::toROSMsg(*point_cloud, pc2);
   pc2.header.frame_id = "map";
   pointcloud_pub_.publish(pc2);
+}
+
+
+/**
+ * @brief 初期姿勢をパブリッシュ
+ */
+void CoordinateAlignment::publishInitialpose(const tf::Transform transform)
+{
+  // pose
+  geometry_msgs::Pose pose;
+  tf::poseTFToMsg(transform, pose);
+  // aligned_pose.position.z = 0.182;
+  // aligned_pose.orientation.x = 0.0;
+  // aligned_pose.orientation.y = 0.0;
+  // aligned_pose.orientation.w = 1.0;
+
+  // initialpose
+  geometry_msgs::PoseWithCovarianceStamped initialpose;
+  initialpose.header.stamp = ros::Time::now();
+  initialpose.header.frame_id = "map";
+  initialpose.pose.pose = pose;
+
+  // rvizからinitialposeをパブリッシュしたときと同じcovarianceを設定
+  initialpose.pose.covariance[0] = 0.25;
+  initialpose.pose.covariance[7] = 0.25;
+  initialpose.pose.covariance[35] = 0.06853891945200942;
+  initialpose_pub_.publish(initialpose);
+}
+
+
+/**
+ * @brief Eigenの行列をTFに変換
+ */
+void CoordinateAlignment::convertMatrix4dIntoTF(const Eigen::Matrix4d& eigen_matrix,
+                                                tf::Transform& transform)
+{
+  Eigen::Vector3d trans(eigen_matrix.block<3, 1>(0, 3));
+  Eigen::Quaterniond q(eigen_matrix.block<3, 3>(0, 0));
+  transform.setOrigin(tf::Vector3(trans.x(), trans.y(), trans.z()));
+  transform.setRotation(tf::Quaternion(q.x(), q.y(), q.z(), q.w()));
 }
 
 
